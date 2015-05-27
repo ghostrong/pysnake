@@ -36,6 +36,13 @@ class Snake(object):
         else:
             self.dead_seg = self.bodies.pop()
 
+    def eating_itself(self):
+        head = self.bodies[0]
+        for seg in self.bodies[1:]:
+            if head == seg:
+                return True
+        return False
+
 
 class Board(object):
 

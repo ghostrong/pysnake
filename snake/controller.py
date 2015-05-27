@@ -74,6 +74,9 @@ class Controller(object):
             if self.board.check_out_bounds():
                 self.playing = False
                 self.board.gameover()
+            elif self.board.snake.eating_itself():
+                self.playing = False
+                self.board.gameover()
             else:
                 self.board.check_eating()
 
