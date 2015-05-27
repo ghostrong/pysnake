@@ -3,19 +3,18 @@
 
 
 from snake import config
-from snake.components import Apple, Snake, Board
+from snake.controller import Controller
 
 
 def main():
     config.init()
-    brd = Board()
+    ctr = Controller()
     try:
-        while True:
-            pass
-    except:
+        ctr.loop()
+    except Exception as e:
         pass
     finally:
-        brd.exit()
+        ctr.exit()
 
 
 if __name__ == '__main__':

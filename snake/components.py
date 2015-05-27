@@ -15,17 +15,26 @@ class Apple(object):
 class Snake(object):
 
     def __init__(self):
-        center_y = config.TERM_HEIGHT / 2
-        center_x = config.TERM_WIDTH / 2
+        center_y = config.BOARD_HEIGHT / 2
+        center_x = config.BOARD_WIDTH / 2
         self.bodies = []
         start = center_x - config.INIT_SNAKE_SIZE / 2
         for i in xrange(config.INIT_SNAKE_SIZE):
             seg = (center_y, start+i)
             self.bodies.append(seg)
         self.direction = config.DIRECTION_MAPPER['LEFT']
+        self.speed = config.INIT_SNAKE_SPEED
+        self.dead_seg = None
+        self.growth = False
 
     def move(self):
-        pass
+        new_head = (self.bodies[0][0] + self.direction[0] * self.speed,
+                    self.bodies[0][1] + self.direction[1] * self.speed)
+        self.bodies.insert(0, new_head)
+        if self.growth:
+            self.growth = False
+        else:
+            self.dead_seg = self.bodies.pop()
 
 
 class Board(object):
@@ -39,21 +48,29 @@ class Board(object):
         curses.start_color()
         # LEFT, RIGHT, TOP, BOTTOM
         self.borders = (
-            20,
-            config.TERM_WIDTH - 20,
-            5,
-            config.TERM_HEIGHT - 5,
+            config.PADDING_LEFT,
+            config.PADDING_LEFT + config.BOARD_WIDTH,
+            config.PADDING_TOP,
+            config.PADDING_TOP + config.BOARD_HEIGHT,
         )
-
         self.init_color()
+        self.score = 0
+
+    def reset(self):
+        self.score = 0
         self.draw_ground()
         self.draw_boundry()
+        self.draw_score()
         self.born_snake()
         self.draw_snake()
         self.apples = []
         for i in xrange(config.INIT_APPLE_NUM):
             a = self.produce_apple()
             self.draw_apple(a)
+
+    def beat(self, msg):
+        self.screen.addstr(0, 0, msg, self.color_mapper['TEXT'])
+        self.screen.refresh()
 
     def exit(self):
         self.screen.clear()
@@ -69,28 +86,43 @@ class Board(object):
             self.color_mapper[key] = curses.color_pair(i+1)
 
     def draw_cell(self, y, x, char, color):
-        self.screen.addstr(y, x, char, color)
-        self.screen.addstr(y, x+1, char, color)
+        _y = config.PADDING_TOP + y
+        _x = config.PADDING_LEFT + x * 2
+        self.screen.addstr(_y, _x, char, color)
+        if len(char) == 1:
+            self.screen.addstr(_y, _x+1, char, color)
 
     def born_snake(self):
         self.snake = Snake()
 
     def draw_boundry(self):
-        left, right, top, bottom = self.borders
         color = self.color_mapper['BORDER']
-        for y in xrange(top, bottom+1):
-            self.draw_cell(y, left, ' ', color)
-            self.draw_cell(y, right, ' ', color)
-        for x in xrange(left, right+1):
-            self.draw_cell(top, x, ' ', color)
-            self.draw_cell(bottom, x, ' ', color)
+        for y in xrange(0, config.BOARD_HEIGHT):
+            self.draw_cell(y, 0, ' ', color)
+            self.draw_cell(y, config.BOARD_WIDTH, ' ', color)
+        for x in xrange(0, config.BOARD_WIDTH + 1):
+            self.draw_cell(0, x, ' ', color)
+            self.draw_cell(config.BOARD_HEIGHT, x, ' ', color)
+
+        help_infos = [
+            '[R]reset',
+            '[Q]quit',
+            '[H]left',
+            '[J]down',
+            '[K]up',
+            '[L]right',
+            '[[]speed-',
+            '[]]speed+',
+            '[ ]pause',
+        ]
+        helpstr = ' '.join(help_infos)
+        self.draw_cell(-2, 1, helpstr, self.color_mapper['TEXT'])
         self.screen.refresh()
 
     def draw_ground(self):
-        left, right, top, bottom = self.borders
         color = self.color_mapper['GROUND']
-        for x in xrange(left+1, right):
-            for y in xrange(top+1, bottom):
+        for x in xrange(1, config.BOARD_WIDTH):
+            for y in xrange(1, config.BOARD_HEIGHT):
                 self.draw_cell(y, x, ' ', color)
         self.screen.refresh()
 
@@ -98,12 +130,18 @@ class Board(object):
         color = self.color_mapper['SNAKE']
         for y, x in self.snake.bodies:
             self.draw_cell(y, x, ' ', color)
+        if self.snake.dead_seg:
+            if self.snake.growth:
+                self.snake.growth = False
+            else:
+                y, x = self.snake.dead_seg
+                self.draw_cell(y, x, ' ', self.color_mapper['GROUND'])
+            self.snake.dead_seg = None
         self.screen.refresh()
 
     def produce_apple(self):
-        left, right, top, bottom = self.borders
-        y = random.randrange(top+1, bottom)
-        x = random.randrange(left+1, right)
+        y = random.randrange(1, config.BOARD_HEIGHT)
+        x = random.randrange(1, config.BOARD_WIDTH)
 
         for apple in self.apples:
             if apple.position[0] == y and apple.position[1] == x:
@@ -123,11 +161,50 @@ class Board(object):
         self.draw_cell(y, x, ' ', color)
         self.screen.refresh()
 
+    def draw_score(self):
+        score_str = 'SCORE: %s' % self.score
+        self.draw_cell(-1, 1, score_str, self.color_mapper['TEXT'])
+
+    def check_eating(self):
+        y, x = self.snake.bodies[0]
+        idx = -1
+        for i, apple in enumerate(self.apples):
+            if apple.position[0] == y and apple.position[1] == x:
+                idx = i
+                break
+        if idx >= 0:
+            self.apples[idx] = self.apples[-1]
+            self.apples.pop()
+            a = self.produce_apple()
+            self.draw_apple(a)
+            self.snake.growth = True
+            self.score += 2
+            self.draw_score()
+            return True
+        return False
+
+    def check_out_bounds(self):
+        y, x = self.snake.bodies[0]
+        if y <= 0 or y >= config.BOARD_HEIGHT or x <= 0 or x >= config.BOARD_WIDTH:
+            return True
+        return False
+
+    def gameover(self):
+        self.draw_ground()
+        self.draw_boundry()
+        self.snake = None
+        self.apples = []
+        center_y = config.BOARD_HEIGHT / 2
+        center_x = config.BOARD_WIDTH / 2
+        self.draw_cell(center_y, center_x-4, 'Game Over', self.color_mapper['TEXT'])
+        self.screen.refresh()
+
 
 if __name__ == '__main__':
     config.init()
+    b = Board()
     try:
-        b = Board()
+        b.reset()
         while True:
             pass
     except Exception as e:

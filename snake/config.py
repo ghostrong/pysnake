@@ -8,18 +8,28 @@ import sys
 import termios
 
 
-LATENCY = 0.1
+LATENCY = 0.2
 
 KEY_MAPPER = {
     'LEFT': [ord('h'), ord('H')],
-    'UP': [ord('j'), ord('J')],
-    'RIGHT': [ord('k'), ord('K')],
-    'DOWN': [ord('l'), ord('L')],
+    'RIGHT': [ord('l'), ord('L')],
+    'UP': [ord('k'), ord('K')],
+    'DOWN': [ord('j'), ord('J')],
+    'QUIT': [ord('q'), ord('Q')],
+    'RESET': [ord('r'), ord('R')],
+    'SPEED+': [ord(']')],
+    'SPEED-': [ord('[')],
+    'PAUSE': [ord(' ')],
 }
 
 INIT_SNAKE_SIZE = 5
 
+INIT_SNAKE_SPEED = 1
+
 INIT_APPLE_NUM = 3
+
+PADDING_LEFT = 10
+PADDING_TOP = 5
 
 TERM_HEIGHT, TERM_WIDTH = (40, 80)
 
@@ -27,14 +37,15 @@ COLOR_MAPPER = {
     'GROUND': (curses.COLOR_WHITE, curses.COLOR_WHITE),
     'APPLE': (curses.COLOR_RED, curses.COLOR_RED),
     'SNAKE': (curses.COLOR_GREEN, curses.COLOR_GREEN),
-    'BORDER': (curses.COLOR_WHITE, curses.COLOR_YELLOW),
+    'BORDER': (curses.COLOR_WHITE, curses.COLOR_CYAN),
+    'TEXT': (curses.COLOR_GREEN, curses.COLOR_WHITE),
 }
 
 DIRECTION_MAPPER = {
-    'LEFT': (-1, 0),
-    'RIGHT': (1, 0),
-    'UP': (0, -1),
-    'DOWN': (0, 1),
+    'LEFT': (0, -1),
+    'RIGHT': (0, +1),
+    'UP': (-1, 0),
+    'DOWN': (+1, 0),
 }
 
 
@@ -50,3 +61,7 @@ def init():
     global TERM_HEIGHT
     global TERM_WIDTH
     TERM_HEIGHT, TERM_WIDTH = get_terminal_size()
+    global BOARD_HEIGHT
+    global BOARD_WIDTH
+    BOARD_HEIGHT = TERM_HEIGHT - PADDING_TOP * 2
+    BOARD_WIDTH = (TERM_WIDTH - PADDING_LEFT * 2) / 2
